@@ -82,6 +82,9 @@ namespace CoreCodeCamp.Controllers
         {
             try
             {
+                var campExists = _campRepository.GetCampAsync(model.Moniker);
+                if (campExists != null)
+                    return BadRequest("Moniker already in use!");
                 var location = _linkGenerator.GetPathByAction($"GetCamp", $"Camps", new { moniker = model.Moniker });
 
                 if (string.IsNullOrWhiteSpace(location))
@@ -103,5 +106,53 @@ namespace CoreCodeCamp.Controllers
 
             return BadRequest("wrong input");
         }
+
+        [HttpPut("{moniker}")]
+        public async Task<ActionResult<CampsModel>> UpdateCampModel(string moniker, CampsModel model)
+        {
+            try
+            {
+                var camp = await _campRepository.GetCampAsync(moniker);
+                if (camp == null) return NotFound($"Could not find the camp with given moniker");
+
+                _mapper.Map(model, destination: camp);
+
+                if (await _campRepository.SaveChangesAsync())
+                {
+                    return _mapper.Map<CampsModel>(camp);
+                }
+            }
+            catch (Exception e)
+            {
+                return this.StatusCode(StatusCodes.Status500InternalServerError, "Something wrong on our end.");
+            }
+
+            return BadRequest();
+        }
+
+        [HttpDelete("{moniker}")]
+        public async Task<IActionResult> Delete(string moniker)
+        {
+            try
+            {
+                var campExist = await _campRepository.GetCampAsync(moniker);
+                if (campExist == null)
+                {
+                    return NotFound("Camp with this moniker does not exist");
+                }
+                _campRepository.Delete(campExist);
+
+                if (await _campRepository.SaveChangesAsync())
+                    return Ok();
+
+            }
+            catch (Exception e)
+            {
+                return this.StatusCode(StatusCodes.Status500InternalServerError, "Something wrong on our end.");
+            }
+
+            return BadRequest("Failed to delete");
+        }
+
     }
 }
